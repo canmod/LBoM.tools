@@ -7,7 +7,7 @@
 #' @importFrom readr write_csv
 #' @importFrom dplyr anti_join
 #' @return filtered data list after entities that are out of scope have been removed. Data
-#' is in tidyxl::xlsx_cells format where each record corresponds to one Excel in source data.
+#' is in tidyxl::xlsx_cells format where each record corresponds to one cell in source data.
 #' @family scope
 #' @export
 assert_current_scope <- function(data_table, metadata){
@@ -200,7 +200,7 @@ exclude_fields <- function(data_table){
 
                # TODO: important difference (buried vs christined)
                # possibly fixed -- naively used alternation group buried|christined
-               %>% filter(grepl("^(buried|christined)\\.in\\.([a-z]+\\.)*[0-9]+\\.([a-z]+\\.)*[a-z]+$|^increases([a-z]*\\.)*[a-z]+$|^decreases([a-z]*\\.)*[a-z]+$",character,perl=TRUE))
+               %>% filter(grepl("^(buried|christined)\\.in\\.([a-z]+\\.)*[0-9]+\\.([a-z]+\\.)*[a-z]+$|^increases([a-z]*\\.)*[a-z]+$|^decreases([a-z]*\\.)*[a-z]+$|^plague\\.in\\.([a-z]+\\.)*[0-9]+\\.([a-z]+\\.)*[a-z]+$",character,perl=TRUE))
                %>% mutate(scope_reason = "temporarily exclude field until method to incorporate in tidy table is known")
                %>% select(file,sheet,col,scope_reason)
   )

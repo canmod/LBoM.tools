@@ -2,12 +2,13 @@ library(LBoM)
 library(dplyr)
 library(iidda)
 
-all_cats = (LBoM::masterList$acm
+all_cats_acm = (LBoM::masterList$acm
    %>% lapply(names)
    %>% unlist
    %>% tolower
    %>% unique
 )
+all_cats_mort = all_disease_names(masterList)
 
 pipeline_dir = "../LBoM-data/derived-data-pipeline"
 ref_tab_paths = list.files(iidda::sprintf_named(
@@ -23,5 +24,5 @@ global_reference_tables = (ref_tabs
   %>% sapply(dplyr::bind_rows, simplify = FALSE)
   %>% sapply(unique, simplify = FALSE)
 )
-
-save(list = c("all_cats", "global_reference_tables"), file = "R/sysdata.rda")
+                                    
+save(list = c("all_cats_acm", "all_cats_mort", "global_reference_tables"), file = "R/sysdata.rda")

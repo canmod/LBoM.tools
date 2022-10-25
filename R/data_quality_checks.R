@@ -55,7 +55,7 @@ filter_out_data_quality <- function(
     repeated_field_names = repeated_field_names(data_table),
     unclassified_field_names = unclassified_field_names(
       data_table,
-      reference_table_list$`representative-categories`
+      (reference_table_list$`representative-categories` %>% filter(data_type==metadata$lbom_info$data_category))
     ),
 
     # these two are not necessary for some types (is it ok if they are present?)
@@ -78,20 +78,14 @@ filter_out_data_quality <- function(
 
   if (filter_data) {
     output_data_table = anti_join(data_table, data_quality_report)
-  } else if (append_repeated_field_names) {  # TODO: what is going on here?
-    output_data_table = (data_table
-    # TODO: not all data types have this join-mutate-select pipeline
+  }   else {
 
-    # no repeated field names were found
-    %>% left_join(data_issues$repeated_field_names)
-    # append cell address to repeated field names to allow for data processing
-    %>% mutate(character=if_else(!is.na(data_quality) & data_type=="character",
-                                 paste0(character,"_",address),
-                                 character))
-    %>% select(-field_name, -data_quality)
-    )
-  } else {
-    output_data_table = data_table
+    output_data_table = (data_table %>%
+                           {if(nrow(data_issues$repeated_field_names)!=0) (left_join(.,data_issues$repeated_field_names) 
+                                                                           %>% mutate(character=if_else(!is.na(data_quality) & data_type=="character",
+                                                                                                        paste0(character,"_",address),
+                                                                                                        character))
+                                                                           %>% select(-field_name, -data_quality)) else .})
   }
   return(output_data_table)
 }
@@ -155,6 +149,7 @@ invalid_dates <- function(data_table){
   # create fields of type Date in data_table
   dates <- create_date_fields(data_table)
 
+  if (nrow(dates)!=0){
   # get rows that correspond to invalid dates
   get_rows <- (dates
                %>% mutate(data_quality = case_when(is.na(period_start_date) ~ "invalid_period_start_date",
@@ -169,6 +164,10 @@ invalid_dates <- function(data_table){
                  %>% left_join(get_rows, by=c("file", "sheet","row"), keep=FALSE)
                  %>% filter(!is.na(data_quality))
   )
+  } else {
+    get_records <- NULL
+  }
+  get_records
 }
 
 
@@ -191,6 +190,7 @@ date_range_issues <- function(data_table){
   # create date fields
   dates <- create_date_fields(data_table)
 
+  if (nrow(dates)!=0){
   # get all rows that correspond to date range issues
   get_rows <- (dates
      # remove invalid dates
@@ -211,7 +211,10 @@ date_range_issues <- function(data_table){
    %>% left_join(get_rows, by=c("file", "sheet","row"), keep=FALSE)
    %>% filter(!is.na(data_quality))
   )
-
+  } else {
+    get_records <- NULL
+  }
+  get_records
 }
 
 

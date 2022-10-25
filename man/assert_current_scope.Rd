@@ -13,7 +13,7 @@ assert_current_scope(data_table, metadata)
 }
 \value{
 filtered data list after entities that are out of scope have been removed. Data
-is in tidyxl::xlsx_cells format where each record corresponds to one Excel in source data.
+is in tidyxl::xlsx_cells format where each record corresponds to one cell in source data.
 }
 \description{
 Scope of the data.

@@ -33,19 +33,19 @@ lbom_sheet_names = function(file_names) {
 
 #' @export
 lbom_pre_processing = function(data, metadata) {
-  (data
-     # Data pre-processing
-     # remove character_formatted (this field is a list containing Excel formatting
-     # for character data types ex. bold text or coloured cells)
-     # Excel fomatting may be captured in later iterations of tidy data
-     %>% select(-character_formatted)
-     # remove white space in character field
-     %>% mutate(character = trimws(character))
-     # convert empty strings to NA
-     %>% mutate(character = if_else((character==""),NA_character_,character))
-     # convert character field to lower case (this includes header comments)
-     %>% mutate(character = tolower(character))
-  )
+  data = (data
+           # Data pre-processing
+           # remove character_formatted (this field is a list containing Excel formatting
+           # for character data types ex. bold text or coloured cells)
+           # Excel fomatting may be captured in later iterations of tidy data
+           %>% select(-character_formatted)
+           # remove white space in character field
+           %>% mutate(character = trimws(character))
+           # convert empty strings to NA
+           %>% mutate(character = if_else((character==""),NA_character_,character))
+           # convert character field to lower case (this includes header comments)
+           %>% mutate(character = tolower(character))
+        )
   if (!is.null(metadata$lbom_info)) {
     data = (data
       %>% mutate(file = as.character(metadata$lbom_info$relative_path))

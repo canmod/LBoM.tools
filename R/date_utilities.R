@@ -28,9 +28,12 @@ create_date_fields <- function(data_table){
       %>% pivot_wider(id_cols=c(file,sheet,row),names_from=time_col, values_from=numeric)
       # create date fields
       # %>% rowwise()
-      %>% mutate(period_start_date = convert_to_date(year.from, month.from, day.from,"start"))
-      %>% mutate(period_end_date = convert_to_date(year.to, month.to, day.to,"end"))
-      # %>% ungroup()
+      %>% {if("year.from" %in% names(.)) mutate(.,period_start_date = convert_to_date(year.from, month.from, day.from,"start"))
+        else if("year" %in% names(.)) mutate(.,period_start_date = convert_to_date(year, NA, NA,"start"))
+        else .}
+      %>% {if("year.to" %in% names(.)) mutate(.,period_end_date = convert_to_date(year.to, month.to, day.to,"end"))
+        else if("year" %in% names(.)) mutate(.,period_end_date = convert_to_date(year, NA, NA,"end"))
+        else .}
   )
 }
 
