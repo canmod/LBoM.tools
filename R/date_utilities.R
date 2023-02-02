@@ -96,11 +96,25 @@ convert_vec_to_date = Vectorize(
   vectorize.args = c("y", "m", "d")
 )
 
+# make_date_string_vec = Vectorize(
+#   make_date_string,
+#   vectorize.args = c("y", "m", "d")
+# )
+
 #' @export
-make_date_string_vec = Vectorize(
-  make_date_string,
-  vectorize.args = c("y", "m", "d")
-)
+make_date_string_vec = function(y,m,d,period=NULL) {
+  y = as.integer(y)
+  m = as.integer(m)
+  d = as.integer(d)
+  is_na_m = is.na(m)
+  if (period == "start") {
+    m[is_na_m] = d[is_na_m] = 1
+  } else if (period == "end") {
+    m[is_na_m] = 12
+    d[is_na_m] = 31
+  }
+  as.character(lubridate::ymd(paste(y, m, d, sep = "-")))
+}
 
 #' @export
 make_date_string_vec_year = Vectorize(
