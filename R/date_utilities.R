@@ -113,7 +113,8 @@ make_date_string_vec = function(y,m,d,period=NULL) {
     m[is_na_m] = 12
     d[is_na_m] = 31
   }
-  as.character(lubridate::ymd(paste(y, m, d, sep = "-")))
+  sprintf("%04d-%02d-%02d", y, m, d)
+  #as.character(lubridate::ymd(paste(y, m, d, sep = "-")))
 }
 
 #' @export
