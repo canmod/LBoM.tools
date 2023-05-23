@@ -51,7 +51,8 @@ process_sheet <- function(
 
       # TODO: important difference between data types
       # possibly fixed with numeric_field_name
-      %>% extract(name,into=c(NA,numeric_field_name),regex = "^(col|numeric|address)_(.*)",remove=FALSE)
+      %>% extract(name,into=c(NA,numeric_field_name),
+                  regex = "^(col|numeric|address)_(.*)",remove=FALSE)
       %>% group_by(across(c(-name, -value)))
       %>% summarize(col = value[startsWith(name, "col_")],
                     address = value[startsWith(name, "address_")],
@@ -65,6 +66,11 @@ process_sheet <- function(
   )
   if ((data_type == "mortality") & !inherits(sheet, "try-error")) {
     sheet = rename(sheet, deaths = count)
+  } else {
+  }
+  missing_columns = setdiff(sub("^numeric_", "", numeric_time_metadata), names(sheet))
+  for (col in missing_columns) {
+    sheet[[col]] = NA_real_
   }
   sheet
 }

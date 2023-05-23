@@ -6,6 +6,8 @@
 #' @param data_table table containing data from tidyxl::xlsx_cells output
 #' @param metadata result of \code{\link{get_tracking_metadata}}
 #' @param filter_data boolean flag to filter out data quality issues
+#' @param skip completely skip data quality checking and just return the input
+#' dataset
 #' @importFrom dplyr bind_rows
 #' @importFrom stringr str_replace_all
 #' @return Returns input `data_table` when `filter_data=FALSE`. If there are any
@@ -18,8 +20,11 @@ filter_out_data_quality <- function(
     data_table,
     metadata,
     filter_data = TRUE,
-    append_repeated_field_names = FALSE
+    skip = TRUE
+    #append_repeated_field_names = FALSE
   ){
+
+  if (skip) return(data_table)
 
   report_path = make_report_path(metadata)
   reference_table_list = getOption("reference_table_list")
@@ -81,7 +86,7 @@ filter_out_data_quality <- function(
   }   else {
 
     output_data_table = (data_table %>%
-                           {if(nrow(data_issues$repeated_field_names)!=0) (left_join(.,data_issues$repeated_field_names) 
+                           {if(nrow(data_issues$repeated_field_names)!=0) (left_join(.,data_issues$repeated_field_names)
                                                                            %>% mutate(character=if_else(!is.na(data_quality) & data_type=="character",
                                                                                                         paste0(character,"_",address),
                                                                                                         character))

@@ -4,12 +4,7 @@
 \alias{filter_out_data_quality}
 \title{Data quality filter}
 \usage{
-filter_out_data_quality(
-  data_table,
-  metadata,
-  filter_data = TRUE,
-  append_repeated_field_names = FALSE
-)
+filter_out_data_quality(data_table, metadata, filter_data = TRUE, skip = TRUE)
 }
 \arguments{
 \item{data_table}{table containing data from tidyxl::xlsx_cells output}
@@ -17,6 +12,9 @@ filter_out_data_quality(
 \item{metadata}{result of \code{\link{get_tracking_metadata}}}
 
 \item{filter_data}{boolean flag to filter out data quality issues}
+
+\item{skip}{completely skip data quality checking and just return the input
+dataset}
 }
 \value{
 Returns input `data_table` when `filter_data=FALSE`. If there are any
