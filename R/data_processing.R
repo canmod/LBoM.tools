@@ -64,10 +64,10 @@ process_sheet <- function(
       %>% inner_join(additional_fields, by="address")
       %>% ungroup()
   )
-  if ((data_type == "mortality") & !inherits(sheet, "try-error")) {
-    sheet = rename(sheet, deaths = count)
-  } else {
-  }
+  # if ((data_type == "mortality") & !inherits(sheet, "try-error")) {
+  #   sheet = rename(sheet, deaths = count)
+  # } else {
+  # }
   missing_columns = setdiff(sub("^numeric_", "", numeric_time_metadata), names(sheet))
   for (col in missing_columns) {
     sheet[[col]] = NA_real_

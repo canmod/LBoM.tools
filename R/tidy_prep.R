@@ -177,3 +177,54 @@ read_source_RDS <- function(source_data_folder,
   readRDS(data_path)
 
 }
+
+#' Make Time Metadata
+#'
+#' @param data_table Data frame returned by `read_digitized_data`.
+#'
+#' @export
+make_time_metadata = function(data_table) {
+  time_metadata <- (data_table
+    %>% select(character)
+    %>% distinct()
+    %>% filter(!is.na(character))
+    %>% filter(grepl(
+      "^(?=year|month|day|week|Week|numdate).*",
+      character,
+      perl = TRUE
+    ))
+    %>% unlist()
+  )
+  list(
+    time_metadata = time_metadata,
+    col_time_metadata = as.character(glue("col_{time_metadata}")),
+    address_time_metadata = as.character(glue("address_{time_metadata}")),
+    numeric_time_metadata = as.character(glue("numeric_{time_metadata}"))
+  )
+}
+
+#' Combine Sheets
+#'
+#' @param data_table Data frame returned by `read_digitized_data`.
+#' @param time_metadata List returned by \code{\link{make_time_metadata}}.
+#'
+#' @export
+combine_sheets = function(data_table, time_metadata, dataset_type) {
+  split_data <- (data_table %>% group_split(file, sheet))
+  processed_data <- lapply(split_data, function(x) {
+    process_sheet(x
+      , time_metadata$col_time_metadata
+      , time_metadata$address_time_metadata
+      , time_metadata$numeric_time_metadata
+      , dataset_type
+    )
+  })
+  ## since there are no reshape ops in the `final_data` pipeline below,
+  ## and given that i think that we do not want rows with missing counts,
+  ## i'm going to remove all missing entries in `count` after binding
+  ## the sheets together
+  (processed_data
+    %>% bind_rows
+    %>% filter(!is.na(count))
+  )
+}
