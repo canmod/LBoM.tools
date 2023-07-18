@@ -201,7 +201,7 @@ exclude_fields <- function(data_table){
                # TODO: important difference (buried vs christined)
                # possibly fixed -- naively used alternation group buried|christined
                # %>% filter(grepl("^(buried|christined)\\.in\\.([a-z]+\\.)*[0-9]+\\.([a-z]+\\.)*[a-z]+$|^increases([a-z]*\\.)*[a-z]+$|^decreases([a-z]*\\.)*[a-z]+$|^plague\\.in\\.([a-z]+\\.)*[0-9]+\\.([a-z]+\\.)*[a-z]+$",character,perl=TRUE))
-               %>% filter(grepl("^(buried|christined)\\.in\\.([a-z]+\\.)*[0-9]+\\.([a-z]+\\.)*[a-z]+$|^increases([a-z]*\\.)*[a-z]+$|^decreases([a-z]*\\.)*[a-z]+$",character,perl=TRUE))
+               %>% filter(grepl("^(christined)\\.in\\.([a-z]+\\.)*[0-9]+\\.([a-z]+\\.)*[a-z]+$|^increases([a-z]*\\.)*[a-z]+$|^decreases([a-z]*\\.)*[a-z]+$",character,perl=TRUE))
                %>% mutate(scope_reason = "temporarily exclude field until method to incorporate in tidy table is known")
                %>% select(file,sheet,col,scope_reason)
   )
