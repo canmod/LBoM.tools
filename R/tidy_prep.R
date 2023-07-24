@@ -46,6 +46,7 @@ lbom_pre_processing = function(data, metadata) {
            # convert character field to lower case (this includes header comments)
            %>% mutate(character = tolower(character))
         )
+
   if (!is.null(metadata$lbom_info)) {
     data = (data
       %>% mutate(file = as.character(metadata$lbom_info$relative_path))
