@@ -6,6 +6,9 @@
 #' @param metadata result of \code{\link{get_tracking_metadata}}
 #' @importFrom readr write_csv
 #' @importFrom dplyr anti_join
+#' @importFrom lubridate year
+#' @importFrom lubridate month
+#' @importFrom lubridate day
 #' @return filtered data list after entities that are out of scope have been removed. Data
 #' is in tidyxl::xlsx_cells format where each record corresponds to one cell in source data.
 #' @family scope
