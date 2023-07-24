@@ -23,22 +23,30 @@ assert_current_scope <- function(data_table, metadata){
 
   # need to check valid input for data_table?
   
+  # sheets with inconsistent time fields (1930-1950 RG)
+  # these sheets only have `period_end_date` data
+  # manually adding `period_start_date` data using
+  # previous `period_end_date` as the `period_start_date`
+  # for the current week
+  # for beginning `period_start_date` of the sheet, a safe
+  # value was set to 7 days before the `period_end_date`
   inconsistent_sheets <- c('mort_uk__lon_1931-32_wk__rg',
                            'mort_uk__lon_1933-39_wk__rg',
                            'mort_uk__lon_1940-49_wk__rg',
                            'mort_uk__lon_1950_wk__rg'
   )
   
+  # get sheet names in data_table
   data_table_sheets <- data_table %>% select(sheet) %>% unique() %>% pull()
   
   if (any(inconsistent_sheets %in% data_table_sheets)) {
-    ## steps are 
-    ## 1. filter data table for these recrods and duplicate, duplicate  c(year, month day records)
+   
+    ## filter data to only affected sheets
     affected_sheets <- (data_table
                         %>% filter(sheet %in% inconsistent_sheets)
                         )
     
-    ## get column numbers of fields with these field names
+    ## get column numbers of time fields
     date_column_numbers <- (affected_sheets
                             %>% filter(character %in% c("year","month","day"))
                             %>% select(sheet,col)
@@ -53,43 +61,55 @@ assert_current_scope <- function(data_table, metadata){
                            %>% unique()
     )
     
-    ## do I need to fix column numbers here, probably like below
-    ## want 3 new column numbers
-    filtered_field_names <- (affected_sheets
-                             %>% right_join(date_column_numbers)
-                            %>% filter(character %in% c("year","month","day"))
-                            %>% uncount(2) ## does this duplicate records
-                            %>% arrange(sheet,col)
-                            ## rename these character fields to have suffixes
-                            %>% mutate(suffix=if_else(row_number()%%2==0,".from",".to"))
-                            %>% mutate(character=paste0(character,suffix))
-                            %>% select(-suffix)
-                            ## for odd rows add 3 to column number
-                            ## %>% mutate(col=if_else(row_number()%%2==1,col+3,col))
-                            )
+    ## fix character fields (column names)
+    ## duplicate column names, and add '.from' and '.to' suffix
+    fix_character_data <- (affected_sheets
+                           # get relevant columns
+                           %>% right_join(date_column_numbers)
+                           %>% filter(character %in% c("year","month","day"))
+                           %>% uncount(2) ## duplicate records
+                           %>% arrange(sheet,col)
+                           ## rename these character fields to have suffixes
+                           %>% mutate(suffix=if_else(row_number()%%2==0,".from",".to"))
+                           %>% mutate(character=paste0(character,suffix))
+                           %>% select(-suffix)
+                           %>% left_join(max_column_numbers)
+                           %>% arrange(sheet, row, col)
+                           %>% mutate(col=if_else(row_number()%%6==2, max_col+1,
+                                                  if_else(row_number()%%6==4,max_col+2,
+                                                          if_else(row_number()%%6==0,max_col+3,col))),
+                                      address=if_else(row_number()%%6==2, paste0('ZZ_',row,'_',col),
+                                                      if_else(row_number()%%6==4,paste0('ZZ_',row,'_',col),
+                                                              if_else(row_number()%%6==0,paste0('ZZ_',row,'_',col),address))))
+                           %>% select(-max_col)
+                           )
     
-    ## 2. duplicate numeric recrods and adjust column names and row numbers
-    filtered_numeric_dates <- (affected_sheets
-                               %>% right_join(date_column_numbers)
-                               %>% filter( !(character %in% c("year","month","day")) & data_type=="numeric")
-                               %>% uncount(2) ## does this duplicate records
-                               %>% arrange(sheet,col,row)
-                               %>% mutate(row=if_else(row_number()%%2==1,row+1,row))
-                               ## remove extra records created above (last row of each sheet)
-                               %>% group_by(sheet) 
-                               %>% filter(row!=max(row)) 
-                               %>% ungroup()
-                               ## add first date (period_start_date) for each sheet
-                               #%>% group_by(sheet)
-                               #%>% mutate()
+    ## fix numeric fields (date data)
+    ## duplicate numeric fields and shift row for each duplicate
+    ## to create period_end_date as the period_start_date for following
+    ## week
+    fix_numeric_data <- (affected_sheets
+                         %>% right_join(date_column_numbers)
+                         %>% filter(!(character %in% c("year","month","day")) & data_type=="numeric")
+                         %>% uncount(2,.id = "id")
+                         %>% arrange(sheet,row,col,id)
+                         %>% mutate(row=if_else(row_number()%%2==0,row+1,row))
+                         ## remove extra records created above (last row of each sheet)
+                         %>% group_by(sheet)
+                         %>% filter(row!=max(row))
+                         %>% ungroup()
+                         
     )
-    
-    
-    ## add first dates
-    first_dates <- (filtered_numeric_dates
-                    %>% group_by(sheet)
-                    %>% filter(row==min(row))
-                    %>% ungroup()
+    ##
+    first_record <- (fix_numeric_data
+                     %>% group_by(sheet)
+                     %>% filter(row==min(row))
+                     %>% ungroup()
+    )
+    ## create period_start_date records for the first week of the sheet
+    ## assuming this would be 7 days before the period_end_date
+    ## makes sense to fix columns and addresses now
+    first_dates <- (first_record
                     %>% arrange(sheet, col)
                     %>% mutate(time_info=if_else(row_number()%%3==1,'y',if_else(row_number()%%3==2,'m','d'))) 
                     %>% pivot_wider(names_from=time_info, values_from=numeric)
@@ -100,40 +120,50 @@ assert_current_scope <- function(data_table, metadata){
                                numeric=if_else(row_number()%%3==1,y,if_else(row_number()%%3==2,m,d)))
                     %>% select(c(-y,-m,-d))
                     %>% ungroup()
-
+                    %>% left_join(max_column_numbers)
+                    %>% arrange(sheet, row, col)
+                    %>% mutate(col=if_else(row_number()%%3==1, max_col+1,
+                                           if_else(row_number()%%3==2,max_col+2,
+                                                   if_else(row_number()%%3==0,max_col+3,col))),
+                               address=if_else(row_number()%%3==1, paste0('ZZ_',row,'_',col),
+                                               if_else(row_number()%%3==2,paste0('ZZ_',row,'_',col),
+                                                       if_else(row_number()%%3==0,paste0('ZZ_',row,'_',col),address))))
+                    %>% select(-max_col)
+                    
     )
     
-    filtered_numeric_dates <- rbind(filtered_numeric_dates,first_dates)
     
-    ## update column numbers for new data
-    updated_data <- (rbind(filtered_field_names,filtered_numeric_dates)
-                 %>% left_join(max_column_numbers)
-                 %>% arrange(sheet, row, col)
-                 %>% mutate(col=if_else(row_number()%%6==2, max_col+1,
-                                        if_else(row_number()%%6==4,max_col+2,
-                                                if_else(row_number()%%6==0,max_col+3,col))),
-                            address=if_else(row_number()%%6==2, 'ZZ1',
-                                            if_else(row_number()%%6==4,'ZZ2',
-                                                    if_else(row_number()%%6==0,'ZZ3',address))))
-                 %>% select(-max_col)
+    ## combine all updated data and fix column numbers and Excel addresses
+    ## appending new period_start_date fields to the end of the sheet
+    ## so only these fields need updated col numbers
+    ## addresses were chosen so that they didn't exist in the current data
+    ## for later pipeline steps we need unique row, col and address fields I believe
+    ## for each record
+    updated_data <- (fix_numeric_data
+                     ## new records only
+                     %>% filter(id==2)
+                     %>% left_join(max_column_numbers)
+                     %>% arrange(sheet, row, col)
+                     %>% mutate(col=if_else(row_number()%%3==1, max_col+1,
+                                            if_else(row_number()%%3==2,max_col+2,
+                                                    if_else(row_number()%%3==0,max_col+3,col))),
+                                address=if_else(row_number()%%3==1, paste0('ZZ_',row,'_',col),
+                                                if_else(row_number()%%3==2,paste0('ZZ_',row,'_',col),
+                                                        if_else(row_number()%%3==0,paste0('ZZ_',row,'_',col),address))))
+                     %>% select(-max_col)
+                     %>% union((fix_numeric_data %>% filter(id==1)))
+                     %>% union(first_record)
+                     %>% union(first_dates)
+                     %>% select(-id)
+                     %>% union(fix_character_data)
 
-                 
-                 
-                 
     )
-    
 
-    
-    ## possible issue, addresses are not accurate
-    ## does it matter about some duplicate things (is address field every used?)
-    
     ## put all data together
     data_table<- (data_table
                   %>% anti_join(date_column_numbers)
                   %>% union(updated_data)
     )
-
-    
 
   }
 
