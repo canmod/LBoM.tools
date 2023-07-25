@@ -163,8 +163,9 @@ assert_current_scope <- function(data_table, metadata){
     )
 
     ## put all data together
+    updated_row_col <- updated_data %>% select(sheet, row, col) %>% unique()
     data_table<- (data_table
-                  %>% anti_join(date_column_numbers)
+                  %>% anti_join(updated_row_col)
                   %>% union(updated_data)
     )
 
