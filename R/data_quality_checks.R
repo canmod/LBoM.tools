@@ -248,42 +248,46 @@ repeated_field_names <- function(data_table){
                       %>% select(-row)
   )
   
-  
-  # identify numeric records to filter out
-  # for numeric fields, we choose to keep the column corresponding to the record
-  # with the maximum numeric value, all other records corresponding to the repeated field
-  # name are filtered out
-  numeric_records <- (data_table
-              %>% left_join(get_field_names, by=c("file", "sheet","col"), keep=FALSE)
-              %>% filter(!is.na(data_quality))
-              %>% filter(data_type=='numeric')
-              %>% group_by(sheet, row)
-              # records we want to keep in final data set
-              %>% mutate(col_to_keep=if_else(numeric==max(numeric,na.rm=TRUE),col,NA_real_))
-              %>% ungroup()
-              # remaining records will end up in data quality report
-              %>% filter(is.na(col_to_keep))
-              %>% select(-col_to_keep)
+  get_records<- (data_table
+                 %>% left_join(get_field_names, by=c("file", "sheet","col"), keep=FALSE)
+                 %>% filter(!is.na(data_quality))
   )
-  
-  # for all other records, select all but the first record to filter out
-  # i.e. for non-numeric fields, defaults to keeping the data in the first column
-  # of the repeated field name
-  other_records <- (data_table
-                    %>% left_join(get_field_names, by=c("file", "sheet","col"), keep=FALSE)
-                    %>% filter(!is.na(data_quality))
-                    %>% anti_join(numeric_records, by=c("row"))
-                    %>% group_by(sheet, row)
-                    # records we want to keep in final data set
-                    %>% mutate(col_to_keep = if_else(row_number()==1,col,NA_real_))
-                    %>% ungroup()
-                    # remaining records will end up in data quality report
-                    %>% filter(is.na(col_to_keep))
-                    %>% select(-col_to_keep)
-  )
-
-  # all records that correspond to repeated field names in get_field_names
-  get_records<- union(numeric_records, other_records)
+  # 
+  # # identify numeric records to filter out
+  # # for numeric fields, we choose to keep the column corresponding to the record
+  # # with the maximum numeric value, all other records corresponding to the repeated field
+  # # name are filtered out
+  # numeric_records <- (data_table
+  #             %>% left_join(get_field_names, by=c("file", "sheet","col"), keep=FALSE)
+  #             %>% filter(!is.na(data_quality))
+  #             %>% filter(data_type=='numeric')
+  #             %>% group_by(sheet, field_name, row)
+  #             # records we want to keep in final data set
+  #             %>% mutate(col_to_keep=if_else(numeric==max(numeric,na.rm=TRUE),col,NA_real_))
+  #             %>% ungroup()
+  #             # remaining records will end up in data quality report
+  #             %>% filter(is.na(col_to_keep))
+  #             %>% select(-col_to_keep)
+  # )
+  # 
+  # # for all other records, select all but the first record to filter out
+  # # i.e. for non-numeric fields, defaults to keeping the data in the first column
+  # # of the repeated field name
+  # other_records <- (data_table
+  #                   %>% left_join(get_field_names, by=c("file", "sheet","col"), keep=FALSE)
+  #                   %>% filter(!is.na(data_quality))
+  #                   %>% anti_join(numeric_records, by=c("row"))
+  #                   %>% group_by(sheet, field_name, row)
+  #                   # records we want to keep in final data set
+  #                   %>% mutate(col_to_keep = if_else(row_number()==1,col,NA_real_))
+  #                   %>% ungroup()
+  #                   # remaining records will end up in data quality report
+  #                   %>% filter(is.na(col_to_keep))
+  #                   %>% select(-col_to_keep)
+  # )
+  # 
+  # # all records that correspond to repeated field names in get_field_names
+  # get_records<- union(numeric_records, other_records)
 }
 
 #' Unclassified field names
