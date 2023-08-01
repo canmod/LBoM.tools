@@ -53,11 +53,13 @@ filter_out_data_quality <- function(
   data_quality_description =
     LBoM.tools:::global_reference_tables$`data-quality-description`
 
+  repeated_field_names = repeated_field_names(data_table)
+  
   # list of data quality issues (not extensive)
   data_issues <- list(
     # no repeated field names were found
     # TODO: this line is commented out in some data types -- why?
-    repeated_field_names = repeated_field_names(data_table),
+    repeated_field_names = repeated_field_names$data_quality_records,
     unclassified_field_names = unclassified_field_names(
       data_table,
       (reference_table_list$`representative-categories` %>% filter(data_type==metadata$lbom_info$data_category))
@@ -82,7 +84,10 @@ filter_out_data_quality <- function(
   write_csv(data_quality_report, file=file.path(".",report_path,"data-quality.csv"))
 
   if (filter_data) {
-    output_data_table = anti_join(data_table, data_quality_report)
+    output_data_table = (anti_join(data_table, data_quality_report)
+                         %>% union(repeated_field_names$new_records)
+    )
+    
   }   else {
 
     output_data_table = (data_table %>%
@@ -232,6 +237,15 @@ date_range_issues <- function(data_table){
 #' @family data_quality_issues
 #' @export
 repeated_field_names <- function(data_table){
+  
+  # get maximum column numbers per sheet
+  get_max_col <- (data_table
+                  %>% group_by(sheet)
+                  %>% mutate(max_col=max(col,na.rm=TRUE))
+                  %>% ungroup()
+                  %>% select(sheet, max_col)
+                  %>% unique()
+  )
 
   # get field names that appear multiple times in the same excel sheet
   get_field_names <- (data_table
@@ -244,15 +258,51 @@ repeated_field_names <- function(data_table){
                       %>% filter(data_quality>1)
                       %>% mutate(data_quality=paste0("repeated_field_name_(n=",as.character(data_quality),")"))
                       %>% ungroup()
+                      %>% left_join(get_max_col)
+                      %>% group_split(sheet)
+                      %>% purrr::map_df(~.x %>% group_by(sheet, character) %>% mutate(col_pos = cur_group_id()))
+                      %>% ungroup()
+                      %>% mutate(new_col=max_col+col_pos)
                       %>% rename(field_name=character)
                       %>% select(-row)
   )
   
-  get_records<- (data_table
+  
+  data_quality_records<- (data_table
                  %>% left_join(get_field_names, by=c("file", "sheet","col"), keep=FALSE)
                  %>% filter(!is.na(data_quality))
+                 %>% select(-max_col,-col_pos,-new_col)
   )
-  # 
+  
+  # records to keep
+  numeric_records <-(data_table
+                             %>% left_join(get_field_names, by=c("file", "sheet","col"), keep=FALSE)
+                             %>% filter(!is.na(data_quality))
+                             %>% filter(data_type=='numeric')
+                             %>% group_by(sheet, field_name, row)
+                             # keep record with the max numeric value
+                             %>% slice_max(numeric,n=1,with_ties=FALSE)
+                             %>% ungroup()
+
+  )
+  
+  nonnumeric_records <- (data_table
+                          %>% left_join(get_field_names, by=c("file", "sheet","col"), keep=FALSE)
+                          %>% filter(!is.na(data_quality))
+                          %>% filter(data_type!='numeric')
+                          # remove rows that already have a numeric record
+                          %>% anti_join(numeric_records, by=c("file","sheet","row"))
+                          %>% group_by(sheet, field_name, row)
+                          # keep one record per group
+                          %>% slice_head(n=1)
+                          %>% ungroup()
+  )
+  
+  # records to keep (with new column number)
+  new_records <- (union(numeric_records,nonnumeric_records)
+                          %>% mutate(col=new_col)
+                          %>% select(c(-max_col,-col_pos,-new_col, -field_name, -data_quality))
+  )
   # # identify numeric records to filter out
   # # for numeric fields, we choose to keep the column corresponding to the record
   # # with the maximum numeric value, all other records corresponding to the repeated field
@@ -288,6 +338,7 @@ repeated_field_names <- function(data_table){
   # 
   # # all records that correspond to repeated field names in get_field_names
   # get_records<- union(numeric_records, other_records)
+  return(nlist(data_quality_records,new_records))
 }
 
 #' Unclassified field names
