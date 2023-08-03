@@ -258,11 +258,6 @@ repeated_field_names <- function(data_table){
                       %>% filter(data_quality>1)
                       %>% mutate(data_quality=paste0("repeated_field_name_(n=",as.character(data_quality),")"))
                       %>% ungroup()
-                      %>% left_join(get_max_col)
-                      %>% group_split(sheet)
-                      %>% purrr::map_df(~.x %>% group_by(sheet, character) %>% mutate(col_pos = cur_group_id()))
-                      %>% ungroup()
-                      %>% mutate(new_col=max_col+col_pos)
                       %>% rename(field_name=character)
                       %>% select(-row)
   )
@@ -271,8 +266,19 @@ repeated_field_names <- function(data_table){
   data_quality_records<- (data_table
                  %>% left_join(get_field_names, by=c("file", "sheet","col"), keep=FALSE)
                  %>% filter(!is.na(data_quality))
-                 %>% select(-max_col,-col_pos,-new_col)
   )
+  
+  new_records <- data.frame()
+  
+  if (nrow(get_field_names)>0){
+    get_field_names <- (get_field_names
+                        %>% left_join(get_max_col)
+                        %>% group_split(sheet)
+                        %>% purrr::map_df(~.x %>% group_by(sheet, field_name) %>% mutate(col_pos = cur_group_id()))
+                        %>% ungroup()
+                        %>% mutate(new_col=max_col+col_pos)
+    )
+  
   
   # records to keep
   numeric_records <-(data_table
@@ -303,6 +309,7 @@ repeated_field_names <- function(data_table){
                           %>% mutate(col=new_col)
                           %>% select(c(-max_col,-col_pos,-new_col, -field_name, -data_quality))
   )
+  }
   # # identify numeric records to filter out
   # # for numeric fields, we choose to keep the column corresponding to the record
   # # with the maximum numeric value, all other records corresponding to the repeated field
