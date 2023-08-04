@@ -90,12 +90,10 @@ filter_out_data_quality <- function(
     
   }   else {
 
-    output_data_table = (data_table %>%
-                           {if(nrow(data_issues$repeated_field_names)!=0) (left_join(.,data_issues$repeated_field_names)
-                                                                           %>% mutate(character=if_else(!is.na(data_quality) & data_type=="character",
-                                                                                                        paste0(character,"_",address),
-                                                                                                        character))
-                                                                           %>% select(-field_name, -data_quality)) else .})
+    output_data_table = (data_table
+                         %>% anti_join((data_quality_report %>% filter(grepl("repeated_field_name",data_quality,perl=TRUE))))
+                         %>% union(repeated_field_names$new_records)
+                         )
   }
   return(output_data_table)
 }
