@@ -84,16 +84,29 @@ filter_out_data_quality <- function(
   write_csv(data_quality_report, file=file.path(".",report_path,"data-quality.csv"))
 
   if (filter_data) {
-    output_data_table = (anti_join(data_table, data_quality_report)
-                         %>% union(repeated_field_names$new_records)
-    )
+    
+    if  (nrow(repeated_field_names$new_records) > 0){
+      output_data_table = (anti_join(data_table, data_quality_report)
+                           %>% (union(repeated_field_names$new_records))
+      )
+    } else {
+      output_data_table = anti_join(data_table, data_quality_report)
+    }
+
     
   }   else {
 
-    output_data_table = (data_table
+    if  (nrow(repeated_field_names$new_records) > 0){
+      output_data_table = (data_table
                          %>% anti_join((data_quality_report %>% filter(grepl("repeated_field_name",data_quality,perl=TRUE))))
                          %>% union(repeated_field_names$new_records)
                          )
+    } else {
+      
+      output_data_table = (data_table
+                           %>% anti_join((data_quality_report %>% filter(grepl("repeated_field_name",data_quality,perl=TRUE))))
+      )
+    }
   }
   return(output_data_table)
 }
