@@ -13,7 +13,14 @@ repeated_field_names(data_table)
 all records in `data_table` that correspond to repeated field names
 }
 \description{
-Field names that appear multiple times in Excel source data sheets.
+Field names that appear multiple times in Excel source data sheets. In order to have one
+data point per each time period (row in the sheet), the decision was made 
+(https://github.com/davidearn/data_work/issues/192) to select the maximum numeric value
+for each record for these fields. Additionally, for each time period if both numeric and
+non-numeric values exist we prioritize numeric values, and in the presence of numeric ties
+we select only one of the numeric values. All records identified by these decisions are 
+updated to have a new column number (that does not contain data in the digitized files)
+so they can easily be identified, and original columns are excluded in the final data set.
 }
 \seealso{
 Other data_quality_issues: 

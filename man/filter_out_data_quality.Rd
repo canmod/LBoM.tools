@@ -11,16 +11,15 @@ filter_out_data_quality(data_table, metadata, filter_data = TRUE, skip = TRUE)
 
 \item{metadata}{result of \code{\link{get_tracking_metadata}}}
 
-\item{filter_data}{boolean flag to filter out data quality issues}
+\item{filter_data}{boolean flag to filter out data quality issues. For the 'repeated_field_name' data quality issue, 
+records are always filtered to create unique records despite this flag to ensure later pipeline processing steps can function.}
 
 \item{skip}{completely skip data quality checking and just return the input
 dataset}
 }
 \value{
-Returns input `data_table` when `filter_data=FALSE`. If there are any
-repeated field names in Excel sheets these field names will be appended with "_(cell address)"
-to ensure field names are unique within Excel sheets. If `filter_data=TRUE` function will
-return `data_table` after data quality issue records have been removed when .
+Returns input `data_table` with possibly additional unique records corresponding to the 'repeated_field_name' data quality issue
+when `filter_data=FALSE`. If `filter_data=TRUE` function will return `data_table` after data quality issue records have been removed.
 }
 \description{
 Create data quality issue report from input table with the option to filter out data

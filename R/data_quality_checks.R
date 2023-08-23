@@ -5,15 +5,14 @@
 #'
 #' @param data_table table containing data from tidyxl::xlsx_cells output
 #' @param metadata result of \code{\link{get_tracking_metadata}}
-#' @param filter_data boolean flag to filter out data quality issues
+#' @param filter_data boolean flag to filter out data quality issues. For the 'repeated_field_name' data quality issue, 
+#' records are always filtered to create unique records despite this flag to ensure later pipeline processing steps can function.
 #' @param skip completely skip data quality checking and just return the input
 #' dataset
 #' @importFrom dplyr bind_rows
 #' @importFrom stringr str_replace_all
-#' @return Returns input `data_table` when `filter_data=FALSE`. If there are any
-#' repeated field names in Excel sheets these field names will be appended with "_(cell address)"
-#' to ensure field names are unique within Excel sheets. If `filter_data=TRUE` function will
-#' return `data_table` after data quality issue records have been removed when .
+#' @return Returns input `data_table` with possibly additional unique records corresponding to the 'repeated_field_name' data quality issue
+#' when `filter_data=FALSE`. If `filter_data=TRUE` function will return `data_table` after data quality issue records have been removed.
 #'
 #' @export
 filter_out_data_quality <- function(
@@ -85,6 +84,9 @@ filter_out_data_quality <- function(
 
   if (filter_data) {
     
+    # if there are repeated field name data quality issues
+    # these "new records" (records with updated column numbers) need to be
+    # added into the final output
     if  (nrow(repeated_field_names$new_records) > 0){
       output_data_table = (anti_join(data_table, data_quality_report)
                            %>% (union(repeated_field_names$new_records))
@@ -94,10 +96,14 @@ filter_out_data_quality <- function(
     }
 
     
-  }   else {
-
+  } else {
+    
+    # if there are repeated field name data quality issues
+    # these "new records" (records with updated column numbers) need to be
+    # added into the final output
     if  (nrow(repeated_field_names$new_records) > 0){
       output_data_table = (data_table
+                         # remove repeated field name records with "old" column numbers
                          %>% anti_join((data_quality_report %>% filter(grepl("repeated_field_name",data_quality,perl=TRUE))))
                          %>% union(repeated_field_names$new_records)
                          )
@@ -241,9 +247,18 @@ date_range_issues <- function(data_table){
 
 #' Repeated field names
 #'
-#' Field names that appear multiple times in Excel source data sheets.
+#' Field names that appear multiple times in Excel source data sheets. In order to have one
+#' data point per each time period (row in the sheet), the decision was made 
+#' (https://github.com/davidearn/data_work/issues/192) to select the maximum numeric value
+#' for each record for these fields. Additionally, for each time period if both numeric and
+#' non-numeric values exist we prioritize numeric values, and in the presence of numeric ties
+#' we select only one of the numeric values. All records identified by these decisions are 
+#' updated to have a new column number (that does not contain data in the digitized files)
+#' so they can easily be identified, and original columns are excluded in the final data set.
 #'
 #' @param data_table table containing data from tidyxl::xlsx_cells output
+#' @importFrom dplyr slice_head slice_max cur_group_id
+#' @importFrom purrr map_df
 #' @return all records in `data_table` that correspond to repeated field names
 #' @family data_quality_issues
 #' @export
@@ -273,15 +288,18 @@ repeated_field_names <- function(data_table){
                       %>% select(-row)
   )
   
-  
+  # all records with corresponding to repeated field names
   data_quality_records<- (data_table
-                 %>% left_join(get_field_names, by=c("file", "sheet","col"), keep=FALSE)
-                 %>% filter(!is.na(data_quality))
+                           %>% left_join(get_field_names, by=c("file", "sheet","col"), keep=FALSE)
+                           %>% filter(!is.na(data_quality))
   )
   
+  # create empty data frame to store modified records
   new_records <- data.frame()
   
   if (nrow(get_field_names)>0){
+    
+    # create new column numbers (greater than the maximum column number in the sheet)
     get_field_names <- (get_field_names
                         %>% left_join(get_max_col)
                         %>% group_split(sheet)
@@ -291,71 +309,45 @@ repeated_field_names <- function(data_table){
     )
   
   
-  # records to keep
-  numeric_records <-(data_table
-                             %>% left_join(get_field_names, by=c("file", "sheet","col"), keep=FALSE)
-                             %>% filter(!is.na(data_quality))
-                             %>% filter(data_type=='numeric')
-                             %>% group_by(sheet, field_name, row)
-                             # keep record with the max numeric value
-                             %>% slice_max(numeric,n=1,with_ties=FALSE)
-                             %>% ungroup()
-
-  )
+    # numeric records to keep
+    # for numeric fields, we choose to keep the column corresponding to the record
+    # with the maximum numeric value (death count), all other numeric records corresponding to the repeated field
+    # name are filtered out
+    numeric_records <-(data_table
+                               %>% left_join(get_field_names, by=c("file", "sheet","col"), keep=FALSE)
+                               %>% filter(!is.na(data_quality))
+                               %>% filter(data_type=='numeric')
+                               %>% group_by(sheet, field_name, row)
+                               # keep record with the max numeric value
+                               %>% slice_max(numeric,n=1,with_ties=FALSE)
+                               %>% ungroup()
   
-  nonnumeric_records <- (data_table
-                          %>% left_join(get_field_names, by=c("file", "sheet","col"), keep=FALSE)
-                          %>% filter(!is.na(data_quality))
-                          %>% filter(data_type!='numeric')
-                          # remove rows that already have a numeric record
-                          %>% anti_join(numeric_records, by=c("file","sheet","row"))
-                          %>% group_by(sheet, field_name, row)
-                          # keep one record per group
-                          %>% slice_head(n=1)
-                          %>% ungroup()
-  )
+    )
+   
+    # non-numeric records to keep
+    # for all other records, select all but the first record to filter out
+    # i.e. for non-numeric fields, defaults to keeping the data in the first column
+    # # of the repeated field name (slice_head(n=1)). We anti_join to 
+    # prioritize numeric records over blanks.
+    nonnumeric_records <- (data_table
+                            %>% left_join(get_field_names, by=c("file", "sheet","col"), keep=FALSE)
+                            %>% filter(!is.na(data_quality))
+                            %>% filter(data_type!='numeric')
+                            # remove rows that already have a numeric record
+                            %>% anti_join(numeric_records, by=c("file","sheet","row"))
+                            %>% group_by(sheet, field_name, row)
+                            # keep one record per group
+                            %>% slice_head(n=1)
+                            %>% ungroup()
+    )
   
-  # records to keep (with new column number)
-  new_records <- (union(numeric_records,nonnumeric_records)
-                          %>% mutate(col=new_col)
-                          %>% select(c(-max_col,-col_pos,-new_col, -field_name, -data_quality))
-  )
+    # aggregate numeric and non-numeric records to keep
+    # update column number to new column numbers
+    new_records <- (union(numeric_records,nonnumeric_records)
+                    %>% mutate(col=new_col)
+                    %>% select(c(-max_col,-col_pos,-new_col, -field_name, -data_quality))
+    )
   }
-  # # identify numeric records to filter out
-  # # for numeric fields, we choose to keep the column corresponding to the record
-  # # with the maximum numeric value, all other records corresponding to the repeated field
-  # # name are filtered out
-  # numeric_records <- (data_table
-  #             %>% left_join(get_field_names, by=c("file", "sheet","col"), keep=FALSE)
-  #             %>% filter(!is.na(data_quality))
-  #             %>% filter(data_type=='numeric')
-  #             %>% group_by(sheet, field_name, row)
-  #             # records we want to keep in final data set
-  #             %>% mutate(col_to_keep=if_else(numeric==max(numeric,na.rm=TRUE),col,NA_real_))
-  #             %>% ungroup()
-  #             # remaining records will end up in data quality report
-  #             %>% filter(is.na(col_to_keep))
-  #             %>% select(-col_to_keep)
-  # )
-  # 
-  # # for all other records, select all but the first record to filter out
-  # # i.e. for non-numeric fields, defaults to keeping the data in the first column
-  # # of the repeated field name
-  # other_records <- (data_table
-  #                   %>% left_join(get_field_names, by=c("file", "sheet","col"), keep=FALSE)
-  #                   %>% filter(!is.na(data_quality))
-  #                   %>% anti_join(numeric_records, by=c("row"))
-  #                   %>% group_by(sheet, field_name, row)
-  #                   # records we want to keep in final data set
-  #                   %>% mutate(col_to_keep = if_else(row_number()==1,col,NA_real_))
-  #                   %>% ungroup()
-  #                   # remaining records will end up in data quality report
-  #                   %>% filter(is.na(col_to_keep))
-  #                   %>% select(-col_to_keep)
-  # )
-  # 
-  # # all records that correspond to repeated field names in get_field_names
-  # get_records<- union(numeric_records, other_records)
   return(nlist(data_quality_records,new_records))
 }
 
@@ -368,8 +360,8 @@ repeated_field_names <- function(data_table){
 #' @param data_table table containing data from tidyxl::xlsx_cells output
 #' @param representative_test_categories data frame containing the reference table
 #' @importFrom readr read_csv
-#' @importFrom tidyr expand
-#' @importFrom dplyr union
+#' @importFrom tidyr expand separate_longer_delim
+#' @importFrom dplyr union inner_join
 #' @return all records in `data_table` that correspond to unclassified field names in tidyxl::xlsx_cells
 #' format
 #' @family data_quality_issues
@@ -420,14 +412,38 @@ unclassified_field_names <- function(data_table, representative_test_categories)
 
   # TODO: this condition is not checked for all data types -- why?
   if (nrow(one_match) > 0 | nrow(miss_matches) > 0){
+    
+    # for the `repeated_cause_synonym` data quality issue, the fields with data 
+    # quality issues need to be identified with both the field name and the sheet
+    # name in which the data quality issues occurs
+    repeated_cause_synonyms <- (representative_test_categories
+                                %>% filter(data_quality=='repeated_cause_synonym')
+                                %>% select(category, affected_sheet_names)
+                                # separate out sheet names for each cause
+                                %>% separate_longer_delim(affected_sheet_names, ", ")
+    )
+    
+    # filter out field names that occur in sheet names not specified in 
+    # representative_test_categories using inner_join()
+    repeated_cause_fields <- (data_table
+                              %>% select(character, row, col, sheet, file)
+                              %>% left_join(union(miss_matches, one_match),by="character")
+                              %>% filter(data_quality=='repeated_cause_synonym')
+                              %>% inner_join(repeated_cause_synonyms, by=c("character"="category","sheet"="affected_sheet_names"))
+                              %>% select(-row)
+                              %>% rename(field_name=character)
+    )
+    
     # all field names with regex data quality issues
     # (i.e. including miss_matches and one_match)
     get_field_names <- (data_table
-      %>% select(character, row, col, sheet, file)
-      %>% left_join(union(miss_matches, one_match),by="character")
-      %>% filter(!is.na(data_quality))
-      %>% select(-row)
-      %>% rename(field_name=character)
+                        %>% select(character, row, col, sheet, file)
+                        %>% left_join(union(miss_matches, one_match),by="character")
+                        %>% filter(!is.na(data_quality) & data_quality!='repeated_cause_synonym')
+                        %>% select(-row)
+                        %>% rename(field_name=character)
+                        %>% union(repeated_cause_fields)
+      
     )
 
     # all records that correspond to field name data quality issues in get_field_names

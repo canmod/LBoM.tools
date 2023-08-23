@@ -24,15 +24,9 @@ assert_current_scope <- function(data_table, metadata){
     print(paste0("Report folder path: ", full_path," created."))
   }
 
-  # need to check valid input for data_table?
   
   # sheets with inconsistent time fields (1930-1950 RG)
   # these sheets only have `period_end_date` data
-  # manually adding `period_start_date` data using
-  # previous `period_end_date` as the `period_start_date`
-  # for the current week
-  # for beginning `period_start_date` of the sheet, a safe
-  # value was set to 7 days before the `period_end_date`
   inconsistent_sheets <- c('mort_uk__lon_1931-32_wk__rg',
                            'mort_uk__lon_1933-39_wk__rg',
                            'mort_uk__lon_1940-49_wk__rg',
@@ -42,6 +36,17 @@ assert_current_scope <- function(data_table, metadata){
   # get sheet names in data_table
   data_table_sheets <- data_table %>% select(sheet) %>% unique() %>% pull()
   
+  # for inconsistent sheets:
+  # 1. create `period_start_date` records using either the `period_end_date`
+  # of the previous record, or subtracting 7 days if the record is the first
+  # of the sheet
+  # 2. append '.to' and '.from' suffix to all time fields (to match field names in all other
+  # digitizations)
+  # 3. for the new '.from' records, create new column numbers (after the last column
+  # in each sheet) and Excel addresses. These are required because later pipeline processing 
+  # steps require unique cell identifiers. Note, the Excel addresses created here do not 
+  # reflect the actual Excel address naming convention and are of the form 'ZZ_[row number]_[column number]'.
+  # This ensures the created addresses are unique and different from all existing addresses.
   if (any(inconsistent_sheets %in% data_table_sheets)) {
    
     ## filter data to only affected sheets
@@ -103,7 +108,7 @@ assert_current_scope <- function(data_table, metadata){
                          %>% ungroup()
                          
     )
-    ##
+    ## first record of the sheet
     first_record <- (fix_numeric_data
                      %>% group_by(sheet)
                      %>% filter(row==min(row))
@@ -111,7 +116,6 @@ assert_current_scope <- function(data_table, metadata){
     )
     ## create period_start_date records for the first week of the sheet
     ## assuming this would be 7 days before the period_end_date
-    ## makes sense to fix columns and addresses now
     first_dates <- (first_record
                     %>% arrange(sheet, col)
                     %>% mutate(time_info=if_else(row_number()%%3==1,'y',if_else(row_number()%%3==2,'m','d'))) 
@@ -174,7 +178,11 @@ assert_current_scope <- function(data_table, metadata){
   # list of out of scope issues (not extensive)
   out_of_scope_list <- list(
     exclude_fields = exclude_fields(data_table),
-    ## temporarily remove this (believe only mortality data is effected by this function)
+    ## removed inconsistent_column_names function from out of scope data
+    ## this data is now included in scope (see previous `if` statement and 
+    ## inconsistent_sheets)
+    ## (believe only mortality data is effected by this function, but it has
+    ## not been tested with other data sets (births and population data))
     # inconsistent_column_names = inconsistent_column_names(data_table),
     empty_rows = empty_rows(data_table),
     empty_cols = empty_cols(data_table),
@@ -333,9 +341,11 @@ header_rows <- function(data_table){
 #' Temporarily exclude some fields that require additional work/thought on how
 #' they should be incorporated in the tidy data set.
 #' These include:
-#' - parish total fields - need to determine how to relate parish groupings with specific parishes
-#' - relative fields - fields that contain relative counts
-#' - possibly need to remove fields with age data with no range (ends in a number)
+#' - some parish total fields - parish grouping fields are now included in scope for
+#'   the mortality data set using reference tables that map parish groups with individual
+#'   parishes. Parish grouping fields for birth data is currently not in scope, however it 
+#'   can be included in scope by following the framework used for the mortality data set.
+#' - relative fields - fields that contain relative counts (ex. "increases in burials this week")
 #'
 #'
 #' @param data_table table containing data from tidyxl::xlsx_cells output

@@ -16,9 +16,11 @@ all records in `data_table` that correspond to excluded fields
 Temporarily exclude some fields that require additional work/thought on how
 they should be incorporated in the tidy data set.
 These include:
-- parish total fields - need to determine how to relate parish groupings with specific parishes
-- relative fields - fields that contain relative counts
-- possibly need to remove fields with age data with no range (ends in a number)
+- some parish total fields - parish grouping fields are now included in scope for
+  the mortality data set using reference tables that map parish groups with individual
+  parishes. Parish grouping fields for birth data is currently not in scope, however it 
+  can be included in scope by following the framework used for the mortality data set.
+- relative fields - fields that contain relative counts (ex. "increases in burials this week")
 }
 \seealso{
 Other scope: 
