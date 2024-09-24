@@ -24,6 +24,7 @@ lbom_path_utility = function(
   file_names
 }
 
+#' @importFrom utils stack
 lbom_sheet_names = function(file_names) {
   # get sheet names in files
   (sapply(file_names,USE.NAMES = TRUE ,xlsx_sheet_names)
@@ -31,6 +32,11 @@ lbom_sheet_names = function(file_names) {
   )
 }
 
+#' LBoM Preprocessing
+#'
+#' @param data Dataset to be preprocessed in IIDDA pipelines.
+#' @param metadata Metadata in form returned by iidda::get_dataset_metadata
+#'
 #' @export
 lbom_pre_processing = function(data, metadata) {
   data = (data
@@ -88,7 +94,7 @@ clean_and_combine_digitized_data = function(sheet_name_table) {
 #' @importFrom tidyxl xlsx_cells xlsx_sheet_names
 #' @importFrom dplyr %>%
 #' @importFrom dplyr mutate case_when bind_rows select if_else
-#'
+#' @importFrom stats setNames
 #' @export
 #'
 split_source_excel <- function(
@@ -208,6 +214,7 @@ make_time_metadata = function(data_table) {
 #'
 #' @param data_table Data frame returned by `read_digitized_data`.
 #' @param time_metadata List returned by \code{\link{make_time_metadata}}.
+#' @param dataset_type Type of dataset (e.g., Mortality, Birth)
 #'
 #' @export
 combine_sheets = function(data_table, time_metadata, dataset_type) {

@@ -59,8 +59,8 @@ get_re_templates = function(type) {
 get_upper_lookup = function(type) {
   iidda::make_age_hash_table(
     switch(type,
-           mortality = LBoM.tools:::all_cats_mort,
-           all_cause = LBoM.tools:::all_cats_acm
+           mortality = all_cats_mort,
+           all_cause = all_cats_acm
     ),
     get_re_templates(type),
     'upper'
@@ -70,8 +70,8 @@ get_upper_lookup = function(type) {
 get_lower_lookup = function(type) {
   iidda::make_age_hash_table(
     switch(type,
-           mortality = LBoM.tools:::all_cats_mort,
-           all_cause = LBoM.tools:::all_cats_acm
+           mortality = all_cats_mort,
+           all_cause = all_cats_acm
     ),
     get_re_templates(type),
     'lower'

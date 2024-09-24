@@ -101,8 +101,21 @@ convert_vec_to_date = Vectorize(
 #   vectorize.args = c("y", "m", "d")
 # )
 
+
+#' Make Date String
+#'
+#' Concatenate Year, Month, and Day Fields into a yyyy-mm-dd String.
+#'
+#' @param y vector containing years
+#' @param m vector containing month numbers (1-12) or `NA`.
+#' @param d vector containing day-of-month numbers (1-31) or `NA`.
+#' @param period a character string indicating whether the years are the
+#' start or end of a period. This argument is only available when `m` and `d`
+#' are `NA`. Valid inputs are "start"(January 1) or "end"(December 31),
+#' default is NULL.
+#'
 #' @export
-make_date_string_vec = function(y,m,d,period=NULL) {
+make_date_string_vec = function(y, m, d, period = NULL) {
   y = as.integer(y)
   m = as.integer(m)
   d = as.integer(d)
@@ -117,6 +130,7 @@ make_date_string_vec = function(y,m,d,period=NULL) {
   #as.character(lubridate::ymd(paste(y, m, d, sep = "-")))
 }
 
+#' @describeIn make_date_string_vec Make date string from year information only
 #' @export
 make_date_string_vec_year = Vectorize(
   make_date_string,

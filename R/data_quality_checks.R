@@ -50,7 +50,7 @@ filter_out_data_quality <- function(
   # file contains descriptions for all data quality issues
   #data_quality_description <- read_csv(description_path)
   data_quality_description =
-    LBoM.tools:::global_reference_tables$`data-quality-description`
+    global_reference_tables$`data-quality-description`
 
   repeated_field_names = repeated_field_names(data_table)
   

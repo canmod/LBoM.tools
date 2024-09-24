@@ -1,12 +1,27 @@
 Package: LBoM.tools
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Tools for Curating London Bills of Mortality and Registrar General Data
 Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
-License: What license is it under?
+Authors@R: 
+  c(person("Steve Walker", rol = c("aut", "cre"), email = "swalk@mcmaster.ca"),
+    person("Jen Freeman", rol = c("aut"), email = "freemjc@mcmaster.ca"))
+Maintainer: Steve Walker <swalk@mcmaster.ca>
+Description: Part of an open toolchain for processing infectious disease
+    datasets available through the IIDDA data repository.
+License: GPL (>= 3)
+Depends:
+  R (>= 3.5.0),
+  iidda
+Imports:
+  dplyr,
+  lubridate,
+  purrr,
+  stringr,
+  tidyr,
+  unpivotr,
+  glue,
+  readr,
+  tidyxl
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.2.3
+RoxygenNote: 7.2.3.9000

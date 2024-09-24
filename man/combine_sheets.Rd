@@ -10,6 +10,8 @@ combine_sheets(data_table, time_metadata, dataset_type)
 \item{data_table}{Data frame returned by `read_digitized_data`.}
 
 \item{time_metadata}{List returned by \code{\link{make_time_metadata}}.}
+
+\item{dataset_type}{Type of dataset (e.g., Mortality, Birth)}
 }
 \description{
 Combine Sheets
